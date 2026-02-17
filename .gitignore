@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment Variables (IMPORTANT: Contains secrets)
+.env
+.env.local
+.env.production
+
+# Database (local SQLite)
+*.db
+*.sqlite
+*.sqlite3
+
+# Credentials (NEVER commit these)
+credentials/
+*.pickle
+*.json
+!railway.json
+
+# Logs
+*.log
+logs/
+
+# Test data (optional - remove if you want to include)
+test-data/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Pytest
+.pytest_cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

@@ -20,11 +20,10 @@ email-validator>=2.1.0
 imapclient>=3.0.1
 
 # Gmail OAuth 2.0 (REQUIRED for Google Workspace since May 2025)
-# Uncomment these lines if using Gmail:
-# google-auth>=2.27.0
-# google-auth-oauthlib>=1.2.0
-# google-auth-httplib2>=0.2.0
-# google-api-python-client>=2.118.0
+google-auth>=2.27.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.118.0
 
 # HTTP Requests (for testing)
 requests>=2.31.0

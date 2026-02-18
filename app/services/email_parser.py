@@ -300,18 +300,23 @@ class EmailParserService:
         """
         Find account that matches the email sender and subject.
         Returns None if no match found.
+        
+        An account must have sender_email set to be matched.
         """
         db = SessionLocal()
         try:
             accounts = db.query(Account).filter(Account.is_active == True).all()
             
             for account in accounts:
-                # Check sender match
-                if account.sender_email:
-                    if account.sender_email.lower() not in sender.lower():
-                        continue
+                # Account must have sender_email configured to match
+                if not account.sender_email:
+                    continue
                 
-                # Check subject match
+                # Check sender match
+                if account.sender_email.lower() not in sender.lower():
+                    continue
+                
+                # Check subject match (optional)
                 if account.subject_pattern:
                     if account.subject_pattern.lower() not in subject.lower():
                         continue

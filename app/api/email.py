@@ -93,14 +93,19 @@ def parse_email_debug(request: ParseEmailRequest):
                 "subject_pattern": account.subject_pattern
             }
             
+            # Account must have sender_email configured
+            if not account.sender_email:
+                account_debug["skip_reason"] = "no_sender_email_configured"
+                debug_info["steps"].append(account_debug)
+                continue
+            
             # Check sender match
-            if account.sender_email:
-                sender_match = account.sender_email.lower() in request.sender.lower()
-                account_debug["sender_match"] = sender_match
-                if not sender_match:
-                    account_debug["skip_reason"] = "sender_mismatch"
-                    debug_info["steps"].append(account_debug)
-                    continue
+            sender_match = account.sender_email.lower() in request.sender.lower()
+            account_debug["sender_match"] = sender_match
+            if not sender_match:
+                account_debug["skip_reason"] = "sender_mismatch"
+                debug_info["steps"].append(account_debug)
+                continue
             
             # Check subject match
             if account.subject_pattern:

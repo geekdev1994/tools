@@ -327,22 +327,57 @@ class GmailOAuthClient:
     def _get_message_body(self, payload: dict) -> str:
         """Extract message body from Gmail payload"""
         body = ""
+        html_body = ""
         
         if 'body' in payload and payload['body'].get('data'):
             body = base64.urlsafe_b64decode(payload['body']['data']).decode('utf-8')
         
         elif 'parts' in payload:
             for part in payload['parts']:
-                if part['mimeType'] == 'text/plain':
-                    if 'data' in part['body']:
+                mime_type = part.get('mimeType', '')
+                
+                if mime_type == 'text/plain':
+                    if 'data' in part.get('body', {}):
                         body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
-                        break
-                elif part['mimeType'] == 'multipart/alternative':
-                    body = self._get_message_body(part)
-                    if body:
+                        break  # Prefer plain text
+                elif mime_type == 'text/html':
+                    if 'data' in part.get('body', {}):
+                        html_body = base64.urlsafe_b64decode(part['body']['data']).decode('utf-8')
+                elif mime_type.startswith('multipart/'):
+                    nested_body = self._get_message_body(part)
+                    if nested_body:
+                        body = nested_body
                         break
         
+        # If no plain text, use HTML and strip tags
+        if not body and html_body:
+            body = self._strip_html_tags(html_body)
+        
         return body
+    
+    def _strip_html_tags(self, html: str) -> str:
+        """Strip HTML tags and decode entities to get plain text"""
+        import re
+        from html import unescape
+        
+        # Remove script and style elements
+        text = re.sub(r'<(script|style)[^>]*>.*?</\1>', '', html, flags=re.DOTALL | re.IGNORECASE)
+        
+        # Replace <br> and </p> with newlines
+        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+        text = re.sub(r'</p>', '\n', text, flags=re.IGNORECASE)
+        
+        # Remove all remaining HTML tags
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # Decode HTML entities
+        text = unescape(text)
+        
+        # Normalize whitespace
+        text = re.sub(r'\s+', ' ', text)
+        text = re.sub(r'\n\s*\n', '\n', text)
+        
+        return text.strip()
     
     def mark_as_read(self, message_id: str) -> bool:
         """Mark a message as read"""

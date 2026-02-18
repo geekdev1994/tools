@@ -63,6 +63,77 @@ class GmailOAuthStatusResponse(BaseModel):
     setup_instructions: str
 
 
+@router.post("/parse/debug")
+def parse_email_debug(request: ParseEmailRequest):
+    """
+    Debug endpoint to trace email parsing step by step.
+    """
+    import re
+    from app.core.database import SessionLocal
+    from app.models import Account
+    
+    debug_info = {
+        "input": {
+            "sender": request.sender,
+            "subject": request.subject,
+            "body_preview": request.body[:200] if request.body else None
+        },
+        "steps": []
+    }
+    
+    db = SessionLocal()
+    try:
+        accounts = db.query(Account).filter(Account.is_active == True).all()
+        debug_info["total_accounts"] = len(accounts)
+        
+        for account in accounts:
+            account_debug = {
+                "name": account.name,
+                "sender_email": account.sender_email,
+                "subject_pattern": account.subject_pattern
+            }
+            
+            # Check sender match
+            if account.sender_email:
+                sender_match = account.sender_email.lower() in request.sender.lower()
+                account_debug["sender_match"] = sender_match
+                if not sender_match:
+                    account_debug["skip_reason"] = "sender_mismatch"
+                    debug_info["steps"].append(account_debug)
+                    continue
+            
+            # Check subject match
+            if account.subject_pattern:
+                subject_match = account.subject_pattern.lower() in request.subject.lower()
+                account_debug["subject_match"] = subject_match
+                if not subject_match:
+                    account_debug["skip_reason"] = "subject_mismatch"
+                    debug_info["steps"].append(account_debug)
+                    continue
+            
+            account_debug["matched"] = True
+            
+            # Test regex patterns
+            if account.amount_regex:
+                match = re.search(account.amount_regex, request.body)
+                account_debug["amount_match"] = match.group(1) if match else None
+            
+            if account.date_regex:
+                match = re.search(account.date_regex, request.body)
+                account_debug["date_match"] = match.group(1) if match else None
+            
+            if account.merchant_regex:
+                match = re.search(account.merchant_regex, request.body)
+                account_debug["merchant_match"] = match.group(1) if match else None
+            
+            debug_info["steps"].append(account_debug)
+            break
+        
+        return debug_info
+    finally:
+        db.close()
+
+
 @router.post("/parse", response_model=ParseEmailResponse)
 def parse_email(
     request: ParseEmailRequest,

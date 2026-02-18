@@ -28,6 +28,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Optional, List
 from dataclasses import dataclass
+from io import BytesIO
 
 try:
     from google.auth.transport.requests import Request
@@ -43,10 +44,14 @@ except ImportError:
 # Gmail API scopes
 SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
 
-# Paths
+# Paths (for local development)
 CREDENTIALS_DIR = Path(__file__).parent.parent.parent / "credentials"
 CREDENTIALS_FILE = CREDENTIALS_DIR / "google_oauth_credentials.json"
 TOKEN_FILE = CREDENTIALS_DIR / "google_oauth_token.pickle"
+
+# Environment variable names (for Railway/production)
+GOOGLE_OAUTH_CREDENTIALS_ENV = "GOOGLE_OAUTH_CREDENTIALS"  # Base64 encoded JSON
+GOOGLE_OAUTH_TOKEN_ENV = "GOOGLE_OAUTH_TOKEN"  # Base64 encoded pickle
 
 
 @dataclass
@@ -67,6 +72,10 @@ class GmailOAuthClient:
     
     This replaces the IMAP client for Gmail accounts since Google
     deprecated app passwords for Workspace accounts (May 2025).
+    
+    Supports two modes:
+    1. Local: Reads from credentials/ directory
+    2. Production: Reads from environment variables (base64 encoded)
     """
     
     def __init__(self, credentials_file: str = None):
@@ -74,20 +83,55 @@ class GmailOAuthClient:
         self.token_file = TOKEN_FILE
         self.credentials: Optional[Credentials] = None
         self.service = None
+        self._using_env_credentials = False
         
-        # Ensure credentials directory exists
-        CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
+        # Check if using environment variables (Railway/production)
+        if os.environ.get(GOOGLE_OAUTH_CREDENTIALS_ENV):
+            self._using_env_credentials = True
+            self._setup_from_env()
+        else:
+            # Ensure credentials directory exists for local dev
+            CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
+    
+    def _setup_from_env(self):
+        """Setup credentials from environment variables"""
+        try:
+            # Decode and write credentials JSON to temp file location
+            creds_b64 = os.environ.get(GOOGLE_OAUTH_CREDENTIALS_ENV, "")
+            if creds_b64:
+                CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
+                creds_json = base64.b64decode(creds_b64).decode('utf-8')
+                with open(CREDENTIALS_FILE, 'w') as f:
+                    f.write(creds_json)
+                print("Gmail OAuth: Loaded credentials from environment")
+            
+            # Decode and write token pickle
+            token_b64 = os.environ.get(GOOGLE_OAUTH_TOKEN_ENV, "")
+            if token_b64:
+                token_bytes = base64.b64decode(token_b64)
+                with open(TOKEN_FILE, 'wb') as f:
+                    f.write(token_bytes)
+                print("Gmail OAuth: Loaded token from environment")
+                
+        except Exception as e:
+            print(f"Gmail OAuth: Error loading from environment: {e}")
     
     def is_available(self) -> bool:
         """Check if Google OAuth libraries are available"""
         return GOOGLE_LIBS_AVAILABLE
     
     def has_credentials(self) -> bool:
-        """Check if OAuth credentials file exists"""
+        """Check if OAuth credentials file exists (or env var is set)"""
+        if os.environ.get(GOOGLE_OAUTH_CREDENTIALS_ENV):
+            return True
         return self.credentials_file.exists()
     
     def is_authenticated(self) -> bool:
         """Check if we have valid authentication tokens"""
+        # First try to load from env if available
+        if self._using_env_credentials and not self.token_file.exists():
+            self._setup_from_env()
+        
         if not self.token_file.exists():
             return False
         

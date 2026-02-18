@@ -2,6 +2,7 @@
 Expense Tracker System - FastAPI Server
 Main application entry point
 """
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -23,9 +24,29 @@ async def lifespan(app: FastAPI):
     init_db()
     seed_default_categories()
     print("Database initialized")
+    
+    # Auto-start email monitor if configured
+    if settings.EMAIL_MONITOR_AUTO_START:
+        print("Auto-starting email monitor...")
+        try:
+            from app.services.email_monitor import email_monitor_service
+            asyncio.create_task(email_monitor_service.start_polling())
+            print("Email monitor started successfully")
+        except Exception as e:
+            print(f"Failed to auto-start email monitor: {e}")
+    
     yield
+    
     # Shutdown
     print("Shutting down...")
+    # Stop email monitor if running
+    try:
+        from app.services.email_monitor import email_monitor_service
+        if email_monitor_service.is_running:
+            email_monitor_service.stop_polling()
+            print("Email monitor stopped")
+    except Exception as e:
+        print(f"Error stopping email monitor: {e}")
 
 
 app = FastAPI(

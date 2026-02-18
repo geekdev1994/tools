@@ -3,7 +3,7 @@ Application Configuration
 """
 from pydantic_settings import BaseSettings
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 
 class Settings(BaseSettings):
@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     
     # Application
     APP_NAME: str = "SpendWise - Smart Expense Tracker"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.5.0"
     DEBUG: bool = True
     
     # Database
@@ -31,9 +31,13 @@ class Settings(BaseSettings):
     EMAIL_POLL_INTERVAL_SECONDS: int = 60
     
     # Gmail OAuth 2.0 Configuration
-    # Credentials are stored in: credentials/google_oauth_credentials.json
-    # Tokens are stored in: credentials/google_oauth_token.pickle
-    # Run: python -m app.services.gmail_oauth to set up OAuth
+    # For local dev: credentials/google_oauth_credentials.json and token.pickle
+    # For production (Railway): Use these environment variables (base64 encoded)
+    GOOGLE_OAUTH_CREDENTIALS: Optional[str] = None  # Base64 encoded credentials JSON
+    GOOGLE_OAUTH_TOKEN: Optional[str] = None  # Base64 encoded token pickle
+    
+    # Auto-start email monitor on startup (useful for production)
+    EMAIL_MONITOR_AUTO_START: bool = False
     
     # API Settings
     API_V1_PREFIX: str = "/api/v1"

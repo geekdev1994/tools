@@ -334,6 +334,45 @@ This will open a browser window to complete Google sign-in.
         )
 
 
+@router.get("/gmail-oauth/debug")
+def debug_gmail_oauth():
+    """
+    Debug Gmail OAuth configuration - check env vars and file state.
+    """
+    import os
+    from pathlib import Path
+    
+    try:
+        from app.services.gmail_oauth import (
+            GmailOAuthClient, 
+            CREDENTIALS_FILE,
+            TOKEN_FILE,
+            GOOGLE_OAUTH_CREDENTIALS_ENV,
+            GOOGLE_OAUTH_TOKEN_ENV
+        )
+        
+        creds_env = os.environ.get(GOOGLE_OAUTH_CREDENTIALS_ENV, "")
+        token_env = os.environ.get(GOOGLE_OAUTH_TOKEN_ENV, "")
+        
+        client = GmailOAuthClient()
+        
+        return {
+            "credentials_env_set": bool(creds_env),
+            "credentials_env_length": len(creds_env),
+            "token_env_set": bool(token_env),
+            "token_env_length": len(token_env),
+            "credentials_file_path": str(CREDENTIALS_FILE),
+            "credentials_file_exists": CREDENTIALS_FILE.exists(),
+            "token_file_path": str(TOKEN_FILE),
+            "token_file_exists": TOKEN_FILE.exists(),
+            "token_file_size": TOKEN_FILE.stat().st_size if TOKEN_FILE.exists() else 0,
+            "is_authenticated": client.is_authenticated(),
+            "using_env_credentials": client._using_env_credentials
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @router.post("/gmail-oauth/test")
 def test_gmail_oauth():
     """

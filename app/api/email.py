@@ -340,7 +340,11 @@ def debug_gmail_oauth():
     Debug Gmail OAuth configuration - check env vars and file state.
     """
     import os
+    import base64
+    import pickle
     from pathlib import Path
+    
+    debug_info = {}
     
     try:
         from app.services.gmail_oauth import (
@@ -354,23 +358,49 @@ def debug_gmail_oauth():
         creds_env = os.environ.get(GOOGLE_OAUTH_CREDENTIALS_ENV, "")
         token_env = os.environ.get(GOOGLE_OAUTH_TOKEN_ENV, "")
         
-        client = GmailOAuthClient()
+        debug_info["credentials_env_set"] = bool(creds_env)
+        debug_info["credentials_env_length"] = len(creds_env)
+        debug_info["token_env_set"] = bool(token_env)
+        debug_info["token_env_length"] = len(token_env)
+        debug_info["credentials_file_path"] = str(CREDENTIALS_FILE)
+        debug_info["credentials_file_exists"] = CREDENTIALS_FILE.exists()
+        debug_info["token_file_path"] = str(TOKEN_FILE)
+        debug_info["token_file_exists"] = TOKEN_FILE.exists()
+        debug_info["token_file_size"] = TOKEN_FILE.stat().st_size if TOKEN_FILE.exists() else 0
         
-        return {
-            "credentials_env_set": bool(creds_env),
-            "credentials_env_length": len(creds_env),
-            "token_env_set": bool(token_env),
-            "token_env_length": len(token_env),
-            "credentials_file_path": str(CREDENTIALS_FILE),
-            "credentials_file_exists": CREDENTIALS_FILE.exists(),
-            "token_file_path": str(TOKEN_FILE),
-            "token_file_exists": TOKEN_FILE.exists(),
-            "token_file_size": TOKEN_FILE.stat().st_size if TOKEN_FILE.exists() else 0,
-            "is_authenticated": client.is_authenticated(),
-            "using_env_credentials": client._using_env_credentials
-        }
+        # Try to decode token directly and check its validity
+        if token_env:
+            try:
+                token_bytes = base64.b64decode(token_env)
+                debug_info["token_decode_success"] = True
+                debug_info["token_bytes_length"] = len(token_bytes)
+                
+                # Try to load as pickle
+                try:
+                    creds = pickle.loads(token_bytes)
+                    debug_info["token_pickle_load_success"] = True
+                    debug_info["token_type"] = str(type(creds))
+                    debug_info["token_valid"] = getattr(creds, 'valid', 'N/A')
+                    debug_info["token_expired"] = getattr(creds, 'expired', 'N/A')
+                    debug_info["has_refresh_token"] = bool(getattr(creds, 'refresh_token', None))
+                except Exception as pe:
+                    debug_info["token_pickle_load_success"] = False
+                    debug_info["token_pickle_error"] = str(pe)
+            except Exception as de:
+                debug_info["token_decode_success"] = False
+                debug_info["token_decode_error"] = str(de)
+        
+        # Now test the client
+        client = GmailOAuthClient()
+        debug_info["using_env_credentials"] = client._using_env_credentials
+        debug_info["is_authenticated"] = client.is_authenticated()
+        
+        return debug_info
     except Exception as e:
-        return {"error": str(e)}
+        debug_info["error"] = str(e)
+        import traceback
+        debug_info["traceback"] = traceback.format_exc()
+        return debug_info
 
 
 @router.post("/gmail-oauth/test")

@@ -352,6 +352,9 @@ class EmailMonitorService:
         
         account, parsed = result
         
+        # Use email received date as transaction date (more reliable than parsed date)
+        parsed.date = email_msg.date
+        
         # Create transaction
         db = SessionLocal()
         try:
